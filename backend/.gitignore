@@ -1,0 +1,11 @@
+# API 密钥和本地环境配置
+.env
+
+# Python 生成文件
+__pycache__/
+*.py[cod]
+.venv/
+
+# 测试与日志
+.pytest_cache/
+*.log
