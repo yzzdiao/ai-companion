@@ -6,8 +6,11 @@ import {
   getHistory,
   getMemories,
   sendMessage,
+  getLLMModels,
+  switchLLMModel,
   type ChatMessage,
   type Memory,
+  type LLMModel,
 } from "./services/chat";
 import "./App.css";
 
@@ -26,6 +29,9 @@ function getSessionId(): string {
 }
 
 export default function App() {
+  const [model, setModel] = useState<LLMModel | null>(null);
+  const [availableModels, setAvailableModels] = useState<LLMModel[]>([]);
+  const [switchingModel, setSwitchingModel] = useState(false);
   const [sessionId] = useState(getSessionId);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -43,9 +49,10 @@ export default function App() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [history, savedMemories] = await Promise.all([
+        const [history, savedMemories, modelConfig] = await Promise.all([
           getHistory(sessionId),
           getMemories(sessionId),
+          getLLMModels(),
         ]);
 
         if (history.length > 0) {
@@ -53,9 +60,11 @@ export default function App() {
         }
 
         setMemories(savedMemories);
+        setModel(modelConfig.current);
+        setAvailableModels(modelConfig.models);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "加载历史记录失败。",
+          err instanceof Error ? err.message : "加载数据失败。",
         );
       }
     }
@@ -65,6 +74,23 @@ export default function App() {
 
   async function refreshMemories() {
     setMemories(await getMemories(sessionId));
+  }
+  async function handleModelChange(provider: string) {
+    if (switchingModel || provider === model?.provider) return;
+
+    setSwitchingModel(true);
+    setError("");
+
+    try {
+      const updatedModel = await switchLLMModel(provider);
+      setModel(updatedModel);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "切换模型失败。",
+      );
+    } finally {
+      setSwitchingModel(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -124,7 +150,26 @@ export default function App() {
             <h1>与晴晴聊天</h1>
             <p>AI 陪伴 · 长期记忆版</p>
           </div>
+          <div className="model-selector">
+            <label htmlFor="model-provider">当前模型</label>
 
+            <select
+              id="model-provider"
+              value={model?.provider ?? ""}
+              onChange={(event) => {
+                void handleModelChange(event.target.value);
+              }}
+              disabled={switchingModel || !model}
+            >
+              {availableModels.map((item) => (
+                <option key={item.provider} value={item.provider}>
+                  {item.provider} · {item.model}
+                </option>
+              ))}
+            </select>
+
+            {switchingModel && <span>切换中……</span>}
+          </div>
           <button
             className="memory-toggle"
             type="button"

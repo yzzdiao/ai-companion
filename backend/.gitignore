@@ -9,3 +9,4 @@ __pycache__/
 # 测试与日志
 .pytest_cache/
 *.log
+*/*.db

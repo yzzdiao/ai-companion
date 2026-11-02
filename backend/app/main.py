@@ -9,7 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.database import init_db
-from app.llm import generate_reply
+from app.llm import (
+    generate_reply,
+    get_available_models,
+    get_current_model,
+    switch_provider,
+)
 from app.memory import (
     delete_memory,
     get_memories,
@@ -55,6 +60,36 @@ def validate_session_id(session_id: str) -> str:
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+class SwitchModelRequest(BaseModel):
+    provider: str = Field(min_length=1, max_length=50)
+
+
+@app.get("/api/llm/models")
+async def list_models():
+    """返回已配置的可用服务商和模型。"""
+
+    return {
+        "current": get_current_model(),
+        "models": get_available_models(),
+    }
+
+
+@app.post("/api/llm/switch")
+async def change_model(request: SwitchModelRequest):
+    """切换当前模型。"""
+
+    try:
+        result = switch_provider(request.provider.strip().lower())
+        return {
+            "success": True,
+            "current": result,
+        }
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
 
 
 @app.post("/api/chat", response_model=ChatResponse)

@@ -1,5 +1,5 @@
 
-const API_BASE = "http://127.0.0.1:8001/api";
+const API_BASE = "http://127.0.0.1:8000/api";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -80,4 +80,41 @@ export async function deleteMemory(
   if (!response.ok) {
     throw new Error("删除记忆失败。");
   }
+}
+export interface LLMModel {
+  provider: string;
+  model: string;
+}
+
+export interface LLMModelConfig {
+  current: LLMModel;
+  models: LLMModel[];
+}
+
+export async function getLLMModels(): Promise<LLMModelConfig> {
+  const response = await fetch(`${API_BASE}/llm/models`);
+
+  if (!response.ok) {
+    throw new Error("获取模型列表失败。");
+  }
+
+  return response.json();
+}
+
+export async function switchLLMModel(
+  provider: string,
+): Promise<LLMModel> {
+  const response = await fetch(`${API_BASE}/llm/switch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.detail ?? "切换模型失败。");
+  }
+
+  return data.current;
 }

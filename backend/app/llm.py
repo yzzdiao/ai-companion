@@ -18,6 +18,11 @@ BACKEND_DIR = os.path.abspath(
 ENV_PATH = os.path.join(BACKEND_DIR, ".env")
 load_dotenv(ENV_PATH)
 
+_active_provider = os.getenv(
+    "LLM_PROVIDER",
+    "deepseek"  # 默认使用 DeepSeek,
+).strip().lower()
+
 # 角色设定与具体模型服务商无关。
 SYSTEM_PROMPT = """
 你叫晴晴，是一个虚构的成年女性 AI 陪伴角色。
@@ -28,7 +33,94 @@ SYSTEM_PROMPT = """
 长期记忆是用户曾主动提供的信息；如果相关，可以自然地参考，
 但不要每次都刻意提及，也不要把推测当成事实。
 """
+def get_available_models() -> list[dict]:
+    """返回已经配置好密钥和模型 ID 的服务商。"""
 
+    available = []
+
+    for provider in ("deepseek", "freeaiapikey", "groq"):
+        try:
+            config = get_provider_config(provider)
+        except RuntimeError:
+            continue
+
+        available.append({
+            "provider": provider,
+            "model": config["model"],
+        })
+
+    return available
+
+
+def get_provider_config(provider: str) -> dict:
+    """获取指定服务商的配置，不返回给前端。"""
+
+    providers = {
+        "deepseek": {
+            "api_key": os.getenv("DeepSeek_API_KEY", ""),
+            "base_url": os.getenv(
+                "DeepSeek_BASE_URL",
+                "http://localhost:3000/v1",
+            ),
+            "model": os.getenv("DeepSeek_MODEL", ""),
+        },
+        "freeaiapikey": {
+            "api_key": os.getenv("FREEAIAPIKEY_API_KEY", ""),
+            "base_url": os.getenv(
+                "FREEAIAPIKEY_BASE_URL",
+                "https://api.freeaiapikey.com/v1",
+            ),
+            "model": os.getenv("FREEAIAPIKEY_MODEL", ""),
+        },
+        "groq": {
+            "api_key": os.getenv("GROQ_API_KEY", ""),
+            "base_url": os.getenv(
+                "GROQ_BASE_URL",
+                "https://api.groq.com/openai/v1",
+            ),
+            "model": os.getenv("GROQ_MODEL", ""),
+        },
+    }
+    if provider not in providers:
+        raise RuntimeError(f"不支持的服务商：{provider}")
+
+    config = providers[provider]
+
+    if (
+        not config["api_key"]
+        or config["api_key"] == "replace_me"
+        or not config["model"]
+        or config["model"].startswith("replace_")
+    ):
+        raise RuntimeError(f"{provider} 配置不完整。")
+
+    config["provider"] = provider
+    return config
+
+
+def switch_provider(provider: str) -> dict:
+    """切换当前服务商，并返回不含密钥的配置。"""
+
+    global _active_provider
+
+    config = get_provider_config(provider)
+    _active_provider = provider
+
+    return {
+        "provider": config["provider"],
+        "model": config["model"],
+    }
+
+
+def get_current_model() -> dict:
+    """查询当前使用的模型，不暴露密钥。"""
+
+    config = get_provider_config(_active_provider)
+
+    return {
+        "provider": config["provider"],
+        "model": config["model"],
+    }
 
 def get_llm_config() -> dict:
     """根据 LLM_PROVIDER 读取对应服务商的配置。"""
@@ -37,6 +129,14 @@ def get_llm_config() -> dict:
 
     # 每个服务商对应自己的 API Key、地址和模型名称。
     providers = {
+        "deepseek": {
+            "api_key": os.getenv("DeepSeek_API_KEY", ""),
+            "base_url": os.getenv(
+                "DeepSeek_BASE_URL",
+                "http://localhost:3000/v1",
+            ),
+            "model": os.getenv("DeepSeek_MODEL", ""),
+        },
         "freeaiapikey": {
             "api_key": os.getenv("FREEAIAPIKEY_API_KEY", ""),
             "base_url": os.getenv(
@@ -58,7 +158,7 @@ def get_llm_config() -> dict:
     if provider not in providers:
         raise RuntimeError(
             f"不支持的 LLM_PROVIDER：{provider}。"
-            "目前支持 freeaiapikey、groq。"
+            "目前支持 deepseek、freeaiapikey、groq。"
         )
 
     config = providers[provider]

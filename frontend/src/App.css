@@ -240,3 +240,29 @@ button {
     padding: 16px;
   }
 }
+.model-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 150px;
+}
+
+.model-selector label {
+  color: #8a817b;
+  font-size: 12px;
+}
+
+.model-selector select {
+  max-width: 230px;
+  padding: 8px 10px;
+  border: 1px solid #e3d9d2;
+  border-radius: 9px;
+  background: #fff;
+  color: #6e5145;
+  font-size: 12px;
+}
+
+.model-selector span {
+  color: #8a817b;
+  font-size: 11px;
+}
